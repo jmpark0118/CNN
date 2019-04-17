@@ -21,7 +21,7 @@
 * returns the activations of hidden nodes in CNN, using MNIST image
 * trains a model with 2 convolution layers and visualizes the result of the 2 layers
 
-#### [CAM : Class Acitivation Map]
+#### CAM : Class Acitivation Map
 ![](image/vgg16.png)
 * VGG16
     + VGG16 is a convolutional neural network model proposed by K. Simonyan and A. Zisserman from the University of Oxford in the paper “Very Deep Convolutional Networks for Large-Scale Image Recognition”. The model achieves 92.7% top-5 test accuracy in ImageNet, which is a dataset of over 14 million images belonging to 1000 classes. 
