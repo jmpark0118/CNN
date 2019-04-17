@@ -1,0 +1,145 @@
+---
+title: "Return activations of nodes in cnn"
+author: "jmpark"
+date: "2019년 4월 3일"
+output: html_document
+---
+
+[R- How to return the activations of hidden nodes in a CNN, given a single MNIST image](https://github.com/apache/incubator-mxnet/issues/1152)
+
+```{r, message=FALSE, warning=FALSE}
+library(mxnet)
+
+download.file('https://apache-mxnet.s3-accelerate.dualstack.amazonaws.com/R/data/mnist_csv.zip', destfile = 'mnist_csv.zip')
+unzip('mnist_csv.zip', exdir = '.')
+
+train <- read.csv('train.csv', header=TRUE)
+dim(train)
+
+data.x <- train[,-1]
+data.x <- data.x/255
+data.y <- train[,1]
+
+# test data로 사용할 index 지정
+val_ind = 1:100
+
+# train data
+train.x <- data.x[-val_ind,]
+train.x <- t(data.matrix(train.x))
+train.y <- data.y[-val_ind]
+
+# test data
+val.x <- data.x[val_ind,]
+val.x <- t(data.matrix(val.x))
+val.y <- data.y[val_ind]
+
+train.array <- train.x
+dim(train.array) <- c(28, 28, 1, ncol(train.x))
+
+val.array <- val.x
+dim(val.array) <- c(28, 28, 1, ncol(val.x))
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# input layer
+data <- mx.symbol.Variable('data')
+# first convolutional layer
+convLayer1 <- mx.symbol.Convolution(data=data, kernel=c(5,5), num_filter=30)
+convAct1 <- mx.symbol.Activation(data=convLayer1, act_type="tanh")
+poolLayer1 <- mx.symbol.Pooling(data=convAct1, pool_type="max", kernel=c(2,2), stride=c(2,2))
+# second convolutional layer
+convLayer2 <- mx.symbol.Convolution(data=poolLayer1, kernel=c(5,5), num_filter=60)
+convAct2 <- mx.symbol.Activation(data=convLayer2, act_type="tanh")
+poolLayer2 <- mx.symbol.Pooling(data=convAct2, pool_type="max",
+                                kernel=c(2,2), stride=c(2,2))
+
+# big hidden layer
+flattenData <- mx.symbol.Flatten(data=poolLayer2)
+hiddenLayer <- mx.symbol.FullyConnected(flattenData, num_hidden=500)
+hiddenAct <- mx.symbol.Activation(hiddenLayer, act_type="tanh")
+# softmax output layer
+outLayer <- mx.symbol.FullyConnected(hiddenAct, num_hidden=10)
+LeNet1 <- mx.symbol.SoftmaxOutput(outLayer)
+
+
+# Group some output layers for visual analysis
+out <- mx.symbol.Group(c(convAct1, poolLayer1, convAct2, poolLayer2, LeNet1))
+# Create an executor (information from input shapes)
+executor <- mx.simple.bind(symbol=out, data=dim(val.array), ctx=mx.cpu())
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# Prepare for training the model
+mx.set.seed(0)
+# Set a logger to keep track of callback data
+logger <- mx.metric.logger$new()
+# Using cpu by default, but set gpu if your machine has a supported one
+devices=mx.cpu(0)
+# Train model
+model <- mx.model.FeedForward.create(LeNet1, X=train.array, y=train.y,
+                                     eval.data=list(data=val.array, label=val.y),
+                                     ctx=devices, 
+                                     num.round=1, 
+                                     array.batch.size=100,
+                                     learning.rate=0.05, 
+                                     momentum=0.9, 
+                                     wd=0.00001,
+                                     eval.metric=mx.metric.accuracy,
+                                     epoch.end.callback=mx.callback.log.train.metric(100, logger))
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# Update parameters
+mx.exec.update.arg.arrays(executor, model$arg.params, match.name=TRUE)
+mx.exec.update.aux.arrays(executor, model$aux.params, match.name=TRUE)
+# Select data to use
+mx.exec.update.arg.arrays(executor, list(data=mx.nd.array(val.array)), match.name=TRUE)
+# Do a forward pass with the current parameters and data
+mx.exec.forward(executor, is.train=FALSE)
+# List of outputs available.
+names(executor$ref.outputs)
+```
+
+```{r, message=FALSE, warning=FALSE, fig.width=3, fig.height=3, fig.align='center'}
+# input data
+out <- val.array[,,1,99]
+image(out,
+      xaxt='n', yaxt='n',
+      col=gray(seq(1,0,-0.1)))
+
+```
+
+
+```{r, message=FALSE, warning=FALSE, fig.width=7, fig.height=8, fig.align='center'}
+# Plot the filters of a sample from validation set
+sample_index <- 99 # sample number in validation set. Change it to if you want to see other samples
+
+activation0_filter_count <- 30 # number of filters of the "convLayer1" layer 
+par(mfrow=c(6,5), mar=c(0.1,0.1,0.1,0.1))  # number of rows x columns in output
+dim(executor$ref.outputs$activation0_output)
+
+for (i in 1:activation0_filter_count) {
+  outputData <- as.array(executor$ref.outputs$activation0_output)[,,i,sample_index]
+  image(outputData,
+        xaxt='n', yaxt='n',
+        col=gray(seq(1,0,-0.1)))
+}
+```
+
+
+```{r, message=FALSE, warning=FALSE, fig.width=9, fig.height=6, fig.align='center'}
+activation1_filter_count <- 60 # number of filters of the "convLayer2" layer 
+
+dim(executor$ref.outputs$activation1_output)
+par(mfrow=c(6,10), mar=c(0.1,0.1,0.1,0.1)) # number of rows x columns in output
+for (i in 1:activation1_filter_count) {
+  outputData <- as.array(executor$ref.outputs$activation1_output)[,,i,sample_index]
+  image(outputData,
+        xaxt='n', yaxt='n',
+        col=gray(seq(1,0,-0.1)))
+}
+```
+
