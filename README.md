@@ -13,6 +13,7 @@
         + Pooling
         + Fully connected
         + Weights
+</br>
 
 ### [Return activations of nodes in CNN](https://github.com/apache/incubator-mxnet/issues/1152)
 <p>
@@ -21,6 +22,7 @@
 
 * returns the activations of hidden nodes in CNN, using MNIST image
 * trains a model with 2 convolution layers and visualizes the result of the 2 layers
+</br>
 
 ### CAM : Class Acitivation Map
 ![](image/vgg16.png)
@@ -32,3 +34,9 @@
         <p>
           <img src="image/elephant.PNG" width="300"/>
         </p>
+</br>
+
+### MxNet
+<img src="image/mxnet-1.PNG" width="430"/> <img src="image/mxnet-3.PNG" width="430">
+<img src="image/mxnet-2.PNG" width="430"/> <img src="image/mxnet-4.PNG" width="430">
+* visualize the filters to see what aspects of the data each layer learns
